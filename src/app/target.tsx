@@ -6,7 +6,7 @@ import { Alert, StatusBar, View } from "react-native"
 import { router, useLocalSearchParams } from 'expo-router'
 
 import { CurrencyInput } from '@/components/currency-input'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTargetDb } from '@/database/use-target-db'
 
 export default function Target() {
@@ -57,8 +57,89 @@ export default function Target() {
   }
 
   async function handleUpdate() {
+    try {
+      await targetDb.update({
+        id: Number(params.id),
+        name,
+        amount
+      })
 
+      Alert.alert('Meta atualizada', 'Meta atualizada com sucesso', 
+        [
+          {
+            text: 'OK',
+            onPress: () => router.back()
+          }
+        ]
+      )
+    } catch (error) {
+      console.log(error)
+      Alert.alert('Erro', 'Erro ao atualizar meta')
+    } finally {
+      setIsProcessing(false)
+    }
   }
+
+  async function fetchDetails(id: number) {
+    try {
+      const response = await targetDb.show(id)
+
+      if(!response) {
+        Alert.alert('Erro', 'Meta não encontrada')
+        return
+      }
+
+      setName(response.name)
+      setAmount(response.amount)
+
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível carregar os dados da meta')
+    }
+  }
+
+  async function handleRemove() {
+    try {
+    if(params.id) {
+      Alert.alert('Remover meta', 'Tem certeza que deseja remover a meta?', [
+        {
+          text: 'Cancelar',
+          style: 'cancel'
+        },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: () => handleRemoveConfirm()
+        }
+      ])
+    }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível remover a meta')
+    }
+  }
+
+  async function handleRemoveConfirm() {
+    try {
+      setIsProcessing(true)
+      await targetDb.remove(Number(params.id))
+
+      Alert.alert('Meta removida', 'Meta removida com sucesso', [
+        {
+          text: 'OK',
+          onPress: () => router.replace('/')
+        }
+      ])
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível remover a meta')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  useEffect(() => {
+    if(params.id) {
+      fetchDetails(Number(params.id))
+    }
+  }, [params.id])
 
   return (
     <View style={{ flex: 1, padding: 24 }}>
@@ -66,7 +147,11 @@ export default function Target() {
       
       <PageHeader 
         title="Meta" 
-        subtitle="Crie uma nova meta para alcançar seus objetivos" 
+        subtitle="Crie uma nova meta para alcançar seus objetivos"
+        rightButton={params.id ? {
+          icon: 'delete',
+          onPress: () => handleRemove()
+        } : undefined}
       />
 
       <View style={{ gap: 24, marginTop: 32 }}>

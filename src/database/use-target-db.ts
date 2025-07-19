@@ -15,6 +15,10 @@ export type TargetResponse = {
   updatedAt: Date
 }
 
+export type TargetUpdate = TargetCreate & {
+  id: number
+}
+
 export function useTargetDb() {
   const db = useSQLiteContext()
 
@@ -62,9 +66,37 @@ export function useTargetDb() {
     `)
   }
 
+  async function update(data: TargetUpdate) {
+    const statement = await db.prepareAsync(`
+      UPDATE targets SET 
+        name = $name,
+        amount = $amount,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = $id
+    `)
+
+    await statement.executeAsync({
+      $id: data.id,
+      $name: data.name,
+      $amount: data.amount
+    })
+  }
+
+  async function remove(id: number) {
+    const statement = await db.prepareAsync(`
+      DELETE FROM targets WHERE id = $id
+    `)
+
+    await statement.executeAsync({
+      $id: id
+    })
+  }
+
   return {
     create,
     listBySavedValue,
-    show
+    show,
+    update,
+    remove
   }
 }
