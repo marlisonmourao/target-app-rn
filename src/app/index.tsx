@@ -1,9 +1,10 @@
 import { Button } from '@/components/button'
-import { HomeHeader } from '@/components/home-header'
+import { HomeHeader, HomeHeaderProps } from '@/components/home-header'
 import { List } from '@/components/list'
 import { Loading } from '@/components/loading'
 import { Target, TargetProps } from '@/components/target'
-import { TargetResponse, useTargetDb } from '@/database/use-target-db'
+import { useTargetDb } from '@/database/use-target-db'
+import {  useTransactionsDb } from '@/database/use-transactions-db'
 import { numberToCurrency } from '@/utils/number-to-currency'
 import { router, useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
@@ -12,19 +13,15 @@ import { Alert, StatusBar, View } from 'react-native'
 export default function Index() {
   const [targets, setTargets] = useState<TargetProps[]>([])
   const [isFetching, setIsFetching] = useState(true)
+  const [summary, setSummary] = useState<HomeHeaderProps>({} as HomeHeaderProps)
 
   const targetDb = useTargetDb()
-
-  const summary = {
-    total: 'R$ 100,00',
-    input: { label: 'Entradas', value: 'R$ 6.700,00' },
-    output: { label: 'Saídas', value: 'R$ 2.700,00' }
-  }
+  const transactionsDb = useTransactionsDb()
 
   async function fetchTargets(): Promise<TargetProps[]> {
     try {
       setIsFetching(true)
-      const response = await targetDb.listBySavedValue()
+      const response = await targetDb.listByPercentageValue()
 
       return response.map((item) => ({
         id: String(item.id),
@@ -42,12 +39,38 @@ export default function Index() {
     }
   }
 
+  async function fetchSummary() {
+    try {
+      const response = await transactionsDb.summary()
+
+      if (!response) {
+        return {} as HomeHeaderProps
+      }
+
+      return {
+        total: numberToCurrency(response.input - response.output),
+        input: {
+          label: 'Entradas',
+          value: numberToCurrency(response.input)
+        },
+        output: {
+          label: 'Saídas',
+          value: numberToCurrency(response.output)
+        }
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível carregar o resumo.')
+    }
+  }
+
   async function fetchData() {
     const targetDataPromise = fetchTargets()
+    const summaryPromise = fetchSummary()
 
-    const [ targetData ] = await Promise.all([targetDataPromise])
+    const [ targetData, summary ] = await Promise.all([targetDataPromise, summaryPromise])
 
     setTargets(targetData)
+    setSummary(summary ?? {} as HomeHeaderProps)
   }
 
   useFocusEffect(useCallback(() => {
