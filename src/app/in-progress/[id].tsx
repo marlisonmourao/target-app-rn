@@ -5,35 +5,24 @@ import { Button } from '@/components/button'
 import { List } from '@/components/list'
 import { PageHeader } from '@/components/page-header'
 import { Progress } from '@/components/progress'
-import { Transaction } from '@/components/transaction'
+import { Transaction, TransactionProps } from '@/components/transaction'
+
+import dayjs from 'dayjs'
 
 import { TransactionType } from '@/utils/transaction-types'
-import { TargetResponse, useTargetDb } from '@/database/use-target-db'
+import { useTargetDb } from '@/database/use-target-db'
 import { useCallback, useState } from 'react'
 import { numberToCurrency } from '@/utils/number-to-currency'
 import { Loading } from '@/components/loading'
-
-const transactions = [
-  {
-    id: '1',
-    value: 'R$ 100,00',
-    date: '2025-01-01',
-    description: 'Compra de Apple Watch',
-    type: TransactionType.Input
-  },
-  {
-    id: '2',
-    value: 'R$ 100,00',
-    date: '2025-01-01',
-    description: 'Compra de Apple Watch',
-    type: TransactionType.Output
-  }
-]
+import { useTransactionsDb } from '@/database/use-transactions-db'
 
 export default function InProgress() {
   const params = useLocalSearchParams<{ id: string }>()
 
   const targetDb = useTargetDb()
+  const transactionsDb = useTransactionsDb()
+
+  const [transactions, setTransactions] = useState<TransactionProps[]>([])
 
   const [isFetching, setIsFetching] = useState(true)
   const [details, setDetails] = useState({
@@ -67,10 +56,32 @@ export default function InProgress() {
 
   async function fetchData() {
     const fetchDetailsPromise = fetchDetails()
+    const fetchTransactionsPromise = fetchTransactions()
 
-    await Promise.all([fetchDetailsPromise])
+    await Promise.all([fetchDetailsPromise, fetchTransactionsPromise])
 
     setIsFetching(false)
+  }
+
+  async function fetchTransactions() {
+    try {
+      const response = await transactionsDb.listByTargetId(Number(params.id))
+
+      const transactionsFormatted = response.map(transaction => ({
+        id: transaction.id.toString(),
+        value: numberToCurrency(transaction.amount),
+        date: dayjs(transaction.createdAt).format('DD/MM/YYYY HH:mm'),
+        description: transaction.observation ?? 'Sem descrição',
+        type: transaction.amount > 0 ? TransactionType.Input : TransactionType.Output,
+        createdAt: transaction.createdAt,
+        updatedAt: transaction.updatedAt
+      }))
+
+      setTransactions(transactionsFormatted)
+    } catch (error) {
+      console.log(error)
+      Alert.alert('Erro', 'Não foi possível carregar as transações')
+    }
   }
 
   useFocusEffect(useCallback(() => {
