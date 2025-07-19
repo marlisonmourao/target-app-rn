@@ -20,6 +20,7 @@ export const styles = StyleSheet.create({
   empty: {
     fontSize: 14,
     fontFamily: fontFamily.regular,
-    color: colors.gray[600]
+    color: colors.gray[600],
+    marginTop: 24
   }
 })
